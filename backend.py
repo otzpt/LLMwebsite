@@ -43,6 +43,14 @@ MAX_NEW_TOKENS = 60
 TEMPERATURE = 0.7
 TOP_K = 40
 REPETITION_PENALTY = 1.3
+EOT_TOKEN = 50256  # gpt-2 <|endoftext|>
+
+def trim_answer(text):
+    # the corpus is full of Q/A text, so after answering the model just writes
+    # the next question. cut whatever it invents past the answer
+    for marker in ("Question:", "<|endoftext|>"):
+        text = text.split(marker)[0]
+    return text.strip()
 
 def sample_next(logits, prev_ids):
     logits = logits.clone()
@@ -79,13 +87,15 @@ def generate_response(prompt):
             # decodes and returns answer(text)
             last_logits = logits[:, -1, :]
             next_id = sample_next(last_logits, ids_tensor[0, prompt_len:])
+            if next_id.item() == EOT_TOKEN:
+                break
             ids_tensor = torch.cat([ids_tensor, next_id], dim = 1)
             logits, kv_cache = model(next_id, kv_cache)  # decode: just the new token
     # formating
     # this should fix the answer being more than 100 words of encoding
     # and decoding
     generated_ids = ids_tensor[0][prompt_len:].tolist()  # only new tokens
-    answer = enc.decode(generated_ids).strip()
+    answer = trim_answer(enc.decode(generated_ids))
 
     #cuts last phrase completly if there is a '.'
     last_period = answer.rfind('.')
