@@ -5,7 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const messages = document.getElementById('messages');
 
     // where the backend is running, change this if you deploy it somewhere else
-    const BACKEND_URL = 'http://localhost:5000/chat';
+    const BACKEND_URL = 'https://2a01-4f9-3a-276e--1019.sslip.io/generate';
 
     // adds a message bubble to the chat window
     function addMessage(text, isUser) {
@@ -17,12 +17,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // sends the user's message to the backend and shows whatever comes back
-    async function sendMessage(message) {
+  async function sendMessage(message) {
+    //shows if model thinking or nah
+    const loadingMsg = addMessage('Thinking...', false);
+    // god this is hard to read
         try {
             const res = await fetch(BACKEND_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: message })
+                body: JSON.stringify({ prompt: message })
             });
 
             if (!res.ok) {
@@ -30,10 +33,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const data = await res.json();
-            addMessage(data.response, false);
+          loadingMsg.textContent = data.answer;
         } catch (err) {
             // backend is down, unreachable, or something broke, don't just fail silently
-            addMessage('Error: could not reach the server.', false);
+          loadingMsg.textContent = 'Error: could not reach the server.';
             console.error(err);
         }
     }
