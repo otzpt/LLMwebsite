@@ -1,5 +1,6 @@
 import sys
 sys.path.append('/home/otzpt/Documentos/tinyllm2')
+import re
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import torch
@@ -45,6 +46,23 @@ TOP_K = 40
 REPETITION_PENALTY = 1.3
 EOT_TOKEN = 50256  # gpt-2 <|endoftext|>
 
+LINK_RE = re.compile(r"\[([^\]]+)\]\([^)]*\)")
+URL_RE = re.compile(r"https?://\S+")
+
+def useful_context(passages):
+    # a chunk that's mostly markdown links is a table of contents: no answer in
+    # it, and the model copies the format and starts inventing real-looking URLs
+    keep = []
+    for p in passages:
+        lines = [l for l in p.text.split("\n") if l.strip()]
+        if lines and sum(1 for l in lines if "](" in l or "http" in l) / len(lines) > 0.5:
+            continue
+        text = URL_RE.sub("", LINK_RE.sub(r"\1", p.text))
+        keep.append(re.sub(r"[ \t]+", " ", text).strip())
+    if not keep:  # a weak chunk still beats no context at all
+        keep = [p.text for p in passages]
+    return "\n\n".join(keep)
+
 def trim_answer(text):
     # the corpus is full of Q/A text, so after answering the model just writes
     # the next question. cut whatever it invents past the answer
@@ -71,7 +89,7 @@ def generate_response(prompt):
 
     # builds the prompt
     results = search(prompt, k = 3)
-    context = "\n\n".join([r.text for r in results])
+    context = useful_context(results)
     full_prompt = f"{context}\n\nQuestion: {prompt}\nAnswer: "
 
     # generates tokens same loop as chat.py, now with kv_cache
