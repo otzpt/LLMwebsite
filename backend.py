@@ -36,10 +36,10 @@ model, device = load_model()  # runs once when server starts
 BLOCK_SIZE = 256
 MAX_NEW_TOKENS = 60
 
-# raw temperature=1.0 sampling over the whole vocab lets this small,
-# undertrained model pick unlikely/off-topic tokens way too often --
-# cooling it down and cutting off everything outside the top TOP_K
-# candidates keeps it on-topic. measured, night and day difference.
+# sampling straight from the full vocab gives word salad on a model this
+# small. top-k keeps it on topic, and the penalty stops it locking onto one
+# token and repeating it forever (that showed up as blank replies).
+# careful: lowering temperature alone makes the repeating worse, not better
 TEMPERATURE = 0.7
 TOP_K = 40
 REPETITION_PENALTY = 1.3
@@ -48,8 +48,8 @@ def sample_next(logits, prev_ids):
     logits = logits.clone()
     seen = torch.unique(prev_ids)
     seen_logits = logits[:, seen]
-    # multiply negative logits, divide positive ones -- a plain divide would boost
-    # negative logits instead of penalizing them
+    # multiply if negative, divide if positive -- dividing a negative logit
+    # moves it towards zero, which would reward repeats instead of punishing them
     logits[:, seen] = torch.where(seen_logits < 0, seen_logits * REPETITION_PENALTY, seen_logits / REPETITION_PENALTY)
     logits = logits / TEMPERATURE
     top_values, top_indices = torch.topk(logits, TOP_K)
