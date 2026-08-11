@@ -36,6 +36,20 @@ model, device = load_model()  # runs once when server starts
 BLOCK_SIZE = 256
 MAX_NEW_TOKENS = 60
 
+# raw temperature=1.0 sampling over the whole vocab lets this small,
+# undertrained model pick unlikely/off-topic tokens way too often --
+# cooling it down and cutting off everything outside the top TOP_K
+# candidates keeps it on-topic. measured, night and day difference.
+TEMPERATURE = 0.7
+TOP_K = 40
+
+def sample_next(logits):
+    logits = logits / TEMPERATURE
+    top_values, top_indices = torch.topk(logits, TOP_K)
+    probs = torch.softmax(top_values, dim = -1)
+    choice = torch.multinomial(probs, num_samples = 1)
+    return top_indices.gather(-1, choice)
+
 def generate_response(prompt):
     # searchs for relevant passages
     enc = tiktoken.get_encoding("gpt2")
@@ -57,8 +71,7 @@ def generate_response(prompt):
         for _ in range(MAX_NEW_TOKENS):
             # decodes and returns answer(text)
             last_logits = logits[:, -1, :]
-            probs = torch.softmax(last_logits, dim = -1)
-            next_id = torch.multinomial(probs, num_samples = 1)
+            next_id = sample_next(last_logits)
             ids_tensor = torch.cat([ids_tensor, next_id], dim = 1)
             logits, kv_cache = model(next_id, kv_cache)  # decode: just the new token
     # formating
