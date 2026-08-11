@@ -5,7 +5,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const messages = document.getElementById('messages');
 
     // where the backend is running, change this if you deploy it somewhere else
-    const BACKEND_URL = 'https://2a01-4f9-3a-276e--1019.sslip.io/generate';
+    // (was the sslip.io IPv6-literal domain -- that only had an AAAA record,
+    // no A record, so it was unreachable from any IPv4-only network. This
+    // hackclub.app subdomain is dual-stack.)
+    const BACKEND_URL = 'https://voidseed.otzpt.hackclub.app/generate';
 
     // adds a message bubble to the chat window
     function addMessage(text, isUser) {

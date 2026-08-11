@@ -30,10 +30,13 @@ set by `BACKEND_URL`.
 **Production (what `main.js` uses right now)** — a FastAPI service, deployed
 on Hack Club Nest (not this repo, not Vercel — Stardance's rules don't allow
 Hugging Face for hosting, so this runs on Nest instead), reachable over HTTPS
-via Caddy + Let's Encrypt:
+via a `*.hackclub.app` subdomain (Nest's dashboard reverse proxy, dual-stack
+IPv4+IPv6). Used to be a raw `sslip.io` IPv6-literal domain that only had an
+AAAA record — worked fine over IPv6, but was completely unreachable from any
+IPv4-only network (a real-world case: a phone on mobile data with no IPv6):
 
 ```
-BACKEND_URL = https://2a01-4f9-3a-276e--1019.sslip.io/generate
+BACKEND_URL = https://voidseed.otzpt.hackclub.app/generate
 
 POST /generate
 Body:     {"prompt": "..."}
