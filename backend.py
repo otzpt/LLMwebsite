@@ -7,6 +7,11 @@ import tiktoken
 from model import GPT
 from search_index import search
 
+# if anyone decides to maintain this code
+# good luck with that it is hard to read
+# or maybe its a skill issue its my first time
+# doing something like this
+
 app = Flask(__name__)
 CORS(app)
 # loads the model
@@ -28,29 +33,46 @@ def load_model():
 
 model, device = load_model()  # runs once when server starts
 
+BLOCK_SIZE = 256
+MAX_NEW_TOKENS = 60
+
 def generate_response(prompt):
     # searchs for relevant passages
     enc = tiktoken.get_encoding("gpt2")
+
     # builds the prompt
     results = search(prompt, k = 3)
     context = "\n\n".join([r.text for r in results])
     full_prompt = f"{context}\n\nQuestion: {prompt}\nAnswer: "
-    # generates tokens same loop as chat.py
-    ids = enc.encode(full_prompt)
-    ids = ids[-256:]
-    ids_tensor = torch.tensor([ids], device = device)
 
-    for _ in range(100):
-        with torch.no_grad():
-            logits = model(ids_tensor[:, -256:])
-        # decodes and returns answer(text)
-        last_logits = logits[:, -1, :]
-        probs = torch.softmax(last_logits, dim = -1)
-        next_id = torch.multinomial(probs, num_samples = 1)
-        ids_tensor = torch.cat([ids_tensor, next_id], dim = 1)
-    # outputs decoded answer
-    output_ids = ids_tensor[0].tolist()
-    return enc.decode(output_ids)
+    # generates tokens same loop as chat.py, now with kv_cache
+    # leave room for MAX_NEW_TOKENS: positions only grow with a cache, no
+    # more sliding the window each step
+    ids = enc.encode(full_prompt)[-(BLOCK_SIZE - MAX_NEW_TOKENS):]
+    ids_tensor = torch.tensor([ids], device = device)
+    prompt_len = len(ids) # stores how many tokens origin promt was/is
+
+    with torch.no_grad():
+        logits, kv_cache = model(ids_tensor)  # prefill: whole prompt at once
+        for _ in range(MAX_NEW_TOKENS):
+            # decodes and returns answer(text)
+            last_logits = logits[:, -1, :]
+            probs = torch.softmax(last_logits, dim = -1)
+            next_id = torch.multinomial(probs, num_samples = 1)
+            ids_tensor = torch.cat([ids_tensor, next_id], dim = 1)
+            logits, kv_cache = model(next_id, kv_cache)  # decode: just the new token
+    # formating
+    # this should fix the answer being more than 100 words of encoding
+    # and decoding
+    generated_ids = ids_tensor[0][prompt_len:].tolist()  # only new tokens
+    answer = enc.decode(generated_ids).strip()
+
+    #cuts last phrase completly if there is a '.'
+    last_period = answer.rfind('.')
+    if last_period != -1:
+        answer = answer[:last_period + 1]
+
+    return answer
 
 @app.route('/chat', methods=['POST'])
 def chat():
