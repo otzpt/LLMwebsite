@@ -42,8 +42,15 @@ MAX_NEW_TOKENS = 60
 # candidates keeps it on-topic. measured, night and day difference.
 TEMPERATURE = 0.7
 TOP_K = 40
+REPETITION_PENALTY = 1.3
 
-def sample_next(logits):
+def sample_next(logits, prev_ids):
+    logits = logits.clone()
+    seen = torch.unique(prev_ids)
+    seen_logits = logits[:, seen]
+    # multiply negative logits, divide positive ones -- a plain divide would boost
+    # negative logits instead of penalizing them
+    logits[:, seen] = torch.where(seen_logits < 0, seen_logits * REPETITION_PENALTY, seen_logits / REPETITION_PENALTY)
     logits = logits / TEMPERATURE
     top_values, top_indices = torch.topk(logits, TOP_K)
     probs = torch.softmax(top_values, dim = -1)
@@ -71,7 +78,7 @@ def generate_response(prompt):
         for _ in range(MAX_NEW_TOKENS):
             # decodes and returns answer(text)
             last_logits = logits[:, -1, :]
-            next_id = sample_next(last_logits)
+            next_id = sample_next(last_logits, ids_tensor[0, prompt_len:])
             ids_tensor = torch.cat([ids_tensor, next_id], dim = 1)
             logits, kv_cache = model(next_id, kv_cache)  # decode: just the new token
     # formating
