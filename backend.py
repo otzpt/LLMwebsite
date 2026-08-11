@@ -78,6 +78,9 @@ def generate_response(prompt):
 def chat():
     # reads message
     message = request.json.get('message')
+    if not message:
+        # no message = nothing to search or generate on, don't let it hit search()
+        return jsonify({'response': ''}), 400
     response = generate_response(message) # calls generate response
     # returns output
     return jsonify({'response': response})

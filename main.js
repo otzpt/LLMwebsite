@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
         msgDiv.textContent = text;
         messages.appendChild(msgDiv);
         messages.scrollTop = messages.scrollHeight; // auto scroll to the bottom
+        return msgDiv; // sendMessage needs this back to edit it once the real answer comes in
     }
 
     // sends the user's message to the backend and shows whatever comes back
