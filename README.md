@@ -53,10 +53,10 @@ body `{"message": "..."}`, response `{"response": "..."}`. To use it, point
 request/response field names back to `message`/`response` — the two backends
 are not interchangeable by URL alone.
 
-Measured on the Nest VM (2 shared vCPUs, no GPU): ~50s per reply, 100 tokens,
-no KV-cache in the model. `main.js` already accounts for this — it shows a
-"Thinking..." placeholder while waiting instead of a spinner that implies a
-couple of seconds.
+Measured on the Nest VM (2 shared vCPUs, no GPU): ~4s per reply, 100 tokens,
+now that `model.py` supports a KV-cache (was ~50s before it). `main.js` still
+shows a "Thinking..." placeholder while waiting rather than assuming an
+instant reply — a shared 2-vCPU box can still be slow under load.
 
 ## Local dev
 
