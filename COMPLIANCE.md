@@ -136,3 +136,66 @@ Implemented on every surface that carries a generated reply:
   rather than 2 August 2026. Whether that applies here (exact
   first-placement date) is not established in this audit — requires
   human/legal review.
+
+## GDPR (Regulation (EU) 2016/679)
+
+Written 2026-08-12, same audit as the AI Act notes above. Not legal advice —
+see "Requires human/legal review" below.
+
+### What's collected
+
+No accounts, no prompt/answer storage, no cookies. The chat itself is
+stateless: `voidseed-api/main.py`'s `/generate` endpoint takes a prompt,
+returns an answer, and keeps nothing about the exchange in application
+state or a database.
+
+The only personal data in this system is what the infrastructure layer
+collects incidentally: Caddy (the reverse proxy in front of the API,
+`voidseed-api/Caddyfile`) writes access logs to stdout, which the
+`voidseed-api.service` systemd unit sends to the VM's journal — client IP
+address and request timestamp. No prompt or answer text is logged.
+
+### Legal basis
+
+Art. 6(1)(f) — legitimate interest, specifically abuse prevention and
+keeping the service available. This isn't hypothetical for this deployment:
+`voidseed-api/main.py` already rate-limits per IP (`RATE_LIMIT_PER_MINUTE`)
+and documents a real prior OOM incident from unmetered concurrent load on
+the VM's 2 CPUs / 1.5GB headroom. Access logs are the record that would let
+an abusive IP be identified and blocked if that happens again.
+
+### Retention (Art. 5(1)(e) — gap)
+
+**No fixed retention period is currently configured.** The VM's
+`journald.conf` has `MaxRetentionSec` and `SystemMaxUse` both commented
+out — there is no time-based expiry. Access logs are rotated only when
+journald's disk-space-based defaults kick in, which could mean logs
+persist far longer than the abuse-prevention purpose in Art. 6(1)(f)
+actually needs.
+
+This is a real Art. 5(1)(e) storage-limitation gap, not a resolved item.
+**Recommended fix:** set `MaxRetentionSec=2592000` (30 days) in
+`journald.conf` on the VM and restart `systemd-journald`. Not done as part
+of this audit — requires a human with access to the VM to apply it.
+
+### Rights (Art. 12-22)
+
+No accounts exist, so there is no way to look up "this person's data" —
+the only personal data held is an IP address inside a journald log stream,
+and an individual erasure/access request against a bare IP isn't
+meaningfully actionable (nothing ties a log line to an identity, and there
+is no per-user index to search or delete from). If a visitor asks, the
+honest answer is that their IP may be in the access log until it rotates,
+with no per-request deletion mechanism.
+
+### Requires human/legal review
+
+- **Exact retention cap.** `MaxRetentionSec=2592000` above is a proposed
+  starting point (30 days), not a value this audit is authorized to pick.
+  A human should decide the actual cap and apply it in `journald.conf`.
+- **Art. 2(10).** GDPR doesn't have an Art. 2(10) personal-activity
+  exclusion (that's an AI Act concept — see the AI Act section above for
+  the equivalent question under Art. 2(10) AI Act). Whether GDPR's own
+  household-activity exemption (Art. 2(2)(c)) could apply to this specific
+  student-competition demo is a separate open question, not resolved
+  here — requires human/legal review.
