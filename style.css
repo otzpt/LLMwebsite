@@ -25,6 +25,20 @@ body {
     color: #5c6370;
 }
 
+/* Art. 5(1)(e)/13 GDPR data-retention disclosure -- same muted treatment
+   as #ai-disclosure, directly below it. */
+#gdpr-disclosure {
+    width: 90%;
+    max-width: 640px;
+    text-align: center;
+    font-size: 12px;
+    color: #5c6370;
+}
+
+#gdpr-disclosure a {
+    color: inherit;
+}
+
 #chat-container {
     width: 90%;
     max-width: 640px;
