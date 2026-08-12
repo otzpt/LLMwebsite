@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function addMessage(text, isUser) {
         const msgDiv = document.createElement('div');
         msgDiv.className = isUser ? 'message user' : 'message bot'; // different color depending on who sent it
-        if (!isUser) msgDiv.dataset.aiGenerated = 'true'; // Art. 50(1): flag machine-generated replies, not the user's own text
+        if (!isUser) msgDiv.dataset.aiGenerated = 'true'; // Art. 50(2): flag machine-generated replies, not the user's own text
         msgDiv.textContent = text;
         messages.appendChild(msgDiv);
         messages.scrollTop = messages.scrollHeight; // auto scroll to the bottom

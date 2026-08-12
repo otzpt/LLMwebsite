@@ -18,7 +18,7 @@ CORS(app)
 
 @app.after_request
 def add_ai_generated_header(response):
-    # Art. 50(1)/(2): machine-readable marking that a reply came from an AI system.
+    # Art. 50(2): machine-readable marking that a reply came from an AI system.
     response.headers['X-AI-Generated'] = 'true'
     return response
 # loads the model
