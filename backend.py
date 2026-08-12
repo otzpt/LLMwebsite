@@ -15,6 +15,12 @@ from search_index import search
 
 app = Flask(__name__)
 CORS(app)
+
+@app.after_request
+def add_ai_generated_header(response):
+    # Art. 50(1)/(2): machine-readable marking that a reply came from an AI system.
+    response.headers['X-AI-Generated'] = 'true'
+    return response
 # loads the model
 def load_model():
     # creates GPT and loads model
@@ -132,10 +138,10 @@ def chat():
     message = request.json.get('message')
     if not message:
         # no message = nothing to search or generate on, don't let it hit search()
-        return jsonify({'response': ''}), 400
+        return jsonify({'response': '', 'ai_generated': True}), 400
     response = generate_response(message) # calls generate response
     # returns output
-    return jsonify({'response': response})
+    return jsonify({'response': response, 'ai_generated': True})
 
 if __name__ == '__main__':
     app.run(port=5000)
