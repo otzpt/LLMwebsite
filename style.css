@@ -7,10 +7,22 @@
 body {
     background-color: #16181d;
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
     height: 100vh;
+    gap: 10px;
     font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+}
+
+/* Art. 50(1) transparency disclosure -- small and muted, must not compete
+   with the chat itself for attention. */
+#ai-disclosure {
+    width: 90%;
+    max-width: 640px;
+    text-align: center;
+    font-size: 12px;
+    color: #5c6370;
 }
 
 #chat-container {
