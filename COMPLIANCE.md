@@ -149,50 +149,51 @@ stateless: `voidseed-api/main.py`'s `/generate` endpoint takes a prompt,
 returns an answer, and keeps nothing about the exchange in application
 state or a database.
 
-The only personal data in this system is what the infrastructure layer
-collects incidentally: Caddy (the reverse proxy in front of the API,
-`voidseed-api/Caddyfile`) writes access logs to stdout, which the
-`voidseed-api.service` systemd unit sends to the VM's journal — client IP
-address and request timestamp. No prompt or answer text is logged.
+**Correction (verified on the VM, 2026-08-12):** an earlier draft of this
+section said Caddy logs client IPs. That was wrong on inspection — checked
+`voidseed-api/Caddyfile` directly (two bare `reverse_proxy` blocks, no `log`
+directive at all, so Caddy emits no access log). The only thing persisted
+is uvicorn's own stdout, captured by journald under `voidseed-api.service`.
+Read those lines directly (`journalctl -u voidseed-api.service`): every one
+shows `10.60.1.2:0` as the client address — a fixed internal Nest network
+address (Caddy's own hop), not the visitor's real IP, and it never varies
+across requests. uvicorn isn't configured with `--proxy-headers`, so it logs
+the TCP peer it sees (Caddy, on the private network) rather than whatever
+`X-Forwarded-For` says. The visitor's real IP is read from
+`X-Forwarded-For` by `main.py`'s own rate-limiter, but that value lives only
+in an in-memory dict, never written to disk, cleared on process restart —
+already covered above. **No visitor-identifying data is persisted by this
+system anywhere**, in application state or in infrastructure logs.
 
 ### Legal basis
 
-Art. 6(1)(f) — legitimate interest, specifically abuse prevention and
-keeping the service available. This isn't hypothetical for this deployment:
-`voidseed-api/main.py` already rate-limits per IP (`RATE_LIMIT_PER_MINUTE`)
-and documents a real prior OOM incident from unmetered concurrent load on
-the VM's 2 CPUs / 1.5GB headroom. Access logs are the record that would let
-an abusive IP be identified and blocked if that happens again.
+Not applicable in the way GDPR envisions "legal basis" — there is no
+personal data of the visitor being processed for a lasting purpose to have
+one. The one thing that does exist (uvicorn's operational log of internal
+proxy traffic — an internal network address, timestamp, method/path) isn't
+personal data about the visitor, since it identifies the reverse proxy, not
+them.
 
-### Retention (Art. 5(1)(e) — gap)
+### Retention
 
-**No fixed retention period is currently configured.** The VM's
-`journald.conf` has `MaxRetentionSec` and `SystemMaxUse` both commented
-out — there is no time-based expiry. Access logs are rotated only when
-journald's disk-space-based defaults kick in, which could mean logs
-persist far longer than the abuse-prevention purpose in Art. 6(1)(f)
-actually needs.
-
-This is a real Art. 5(1)(e) storage-limitation gap, not a resolved item.
-**Recommended fix:** set `MaxRetentionSec=2592000` (30 days) in
-`journald.conf` on the VM and restart `systemd-journald`. Not done as part
-of this audit — requires a human with access to the VM to apply it.
+No visitor data to retain. The internal-traffic log lines described above
+persist under journald's ordinary disk-space-based rotation, same as any
+service log on this VM — not a GDPR-relevant retention question, since
+nothing in that stream identifies a visitor.
 
 ### Rights (Art. 12-22)
 
-No accounts exist, so there is no way to look up "this person's data" —
-the only personal data held is an IP address inside a journald log stream,
-and an individual erasure/access request against a bare IP isn't
-meaningfully actionable (nothing ties a log line to an identity, and there
-is no per-user index to search or delete from). If a visitor asks, the
-honest answer is that their IP may be in the access log until it rotates,
-with no per-request deletion mechanism.
+Not actionable and not needed: there is no personal data of any visitor
+held anywhere in this system to access, correct, or erase.
 
 ### Requires human/legal review
 
-- **Exact retention cap.** `MaxRetentionSec=2592000` above is a proposed
-  starting point (30 days), not a value this audit is authorized to pick.
-  A human should decide the actual cap and apply it in `journald.conf`.
+- **Reconfirm periodically.** This finding depends on uvicorn's current
+  logging config (no `--proxy-headers`) and Caddy's current Caddyfile (no
+  `log` directive) staying as they are. If either changes — e.g. someone
+  adds `--forwarded-allow-ips` to see real client IPs in the app log for
+  debugging, or adds a `log` block to Caddy — this section needs re-checking
+  against the new config, not assumed to still hold.
 - **Art. 2(10).** GDPR doesn't have an Art. 2(10) personal-activity
   exclusion (that's an AI Act concept — see the AI Act section above for
   the equivalent question under Art. 2(10) AI Act). Whether GDPR's own
